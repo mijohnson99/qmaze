@@ -1,27 +1,4 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-
-struct maze {
-	int width, height;
-	char tile[];
-};
-
-struct maze *new_maze(int w, int h)
-{
-	struct maze *m;
-	if (w % 2 == 0)
-		w--;
-	if (h % 2 == 0)
-		h--;
-	m = malloc(sizeof(*m) + w*h*sizeof(m->tile[0]));
-	m->width = w;
-	m->height = h;
-	return m;
-}
-#define free_maze(m) free(m)
+#include "maze.h"
 
 void maze_initialize(struct maze *m)
 {	// Fill maze with walls, i.e. '#'
@@ -34,11 +11,22 @@ void maze_initialize(struct maze *m)
 	m->tile[m->width * m->height - 2] = ' ';
 }
 
-void maze_display(struct maze *m)
+struct maze *new_maze(int w, int h)
 {
-	for (int i = 0; i < m->height; i++)
-		printf("%.*s\n", m->width, &m->tile[i*m->width]);
+	struct maze *m;
+	// Remove extra edges
+	if (w % 2 == 0)
+		w--;
+	if (h % 2 == 0)
+		h--;
+	// Allocate memory and instantiate
+	m = malloc(sizeof(*m) + w*h*sizeof(m->tile[0]));
+	m->width = w;
+	m->height = h;
+	maze_initialize(m);
+	return m;
 }
+#define free_maze(m) free(m)
 
 #define NORTH(m,p) ((p) - 2*(m)->width)
 #define SOUTH(m,p) ((p) + 2*(m)->width)
@@ -47,6 +35,7 @@ void maze_display(struct maze *m)
 
 #define X(m,p) ((p)%(m)->width)
 #define Y(m,p) ((p)/(m)->width)
+
 #define MINX(m) (1)
 #define MINY(m) (1)
 #define MAXX(m) ((m)->width - 1)
@@ -70,7 +59,7 @@ int rand_neighbor(struct maze *m, int pos, char c)
 	if (n == 0)
 		return -1;
 	else 
-		return neighbors[rand()%n];
+		return neighbors[rand() % n];
 }
 
 bool snake_continue(struct maze *m, int *pos)
@@ -131,7 +120,9 @@ void maze_generate(struct maze *m)
 {
 	// Variation on the "Hunt and Kill" algorithm.
 	// I call it the "Snake" algorithm.
-	// No vertical scanning; instead pick any unvisited square adjacent to visited.
+	// No vertical scanning; instead:
+	// 1. Pick any visited square adjacent to an unvisited square.
+	// 2. Continue the algorithm from there.
 
 	// Create the first blank space
 	//int pos = m->width + 1;
@@ -144,6 +135,23 @@ void maze_generate(struct maze *m)
 			continue;
 		// Jump to another valid point when necessary
 	} while (snake_continue(m, &pos));
+}
+
+#ifdef UNIT_TEST
+#include <time.h>
+#include "aterm.h"
+void maze_display(struct maze *m)
+{
+	for (int y = 0; y < m->height; y++) {
+		for (int x = 0; x < m->width; x++) {
+			int p = x + y * m->width;
+			if (m->tile[p] == '#')
+				printf(SGR(BG_COLR(WHITE))" ");
+			else
+				printf(SGR(BG_COLR(BLACK))" ");
+		}
+		printf(SGR(RESET)"\n");
+	}
 }
 
 int main(int argc, char **argv)
@@ -162,3 +170,4 @@ int main(int argc, char **argv)
 	free_maze(m);
 	return 0;
 }
+#endif
