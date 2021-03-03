@@ -7,6 +7,7 @@
 struct game {
 	struct maze *maze;
 	int visibility;
+	int volatility;
 	int player_x;
 	int player_y;
 };
@@ -122,6 +123,7 @@ void game_exit(int sig)
 int main(int argc, char **argv)
 {
 	int w = 80, h = 24;
+	int turn = 0;
 	struct game g;
 	printf(CUH SGR(RESET) CLS); // Hide cursor and clear screen
 	// Accept size parameters
@@ -133,6 +135,7 @@ int main(int argc, char **argv)
 	g.maze = new_maze(w, h); // TODO: Is having a struct for this really necessary?
 	maze_generate(g.maze);
 	g.visibility = 5; // TODO: Parameterize
+	g.volatility = 1; // TODO: Parameterize
 	// Place the player
 	g.player_x = 1;
 	g.player_y = 0;
@@ -144,11 +147,14 @@ int main(int argc, char **argv)
 	signal(SIGSEGV, game_exit);
 	system("stty raw -echo"); // TODO: Use termios
 	// Game loop
-	for (int turn = 0; ; turn++) {
+	for (;;) {
+		turn++;
 		draw_game(&g);
 		try_move(&g, getchar());
-		clear_unseen(&g);
-		maze_generate(g.maze);
+		if (turn % g.volatility == 0) {
+			clear_unseen(&g);
+			maze_generate(g.maze);
+		}
 	}
 	// Unreachable
 	return 0;
