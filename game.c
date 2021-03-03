@@ -22,7 +22,7 @@ bool is_visible(struct game *g, int x, int y)
 	if (x == g->maze->width-1 || y == g->maze->height-1)
 		return true;
 	// Things near player should be visible
-	// TODO: Make this not a square
+	// TODO: if (ABS(dx) + ABS(dy) > g->visibility) return false;
 	if (ABS(dx) > g->visibility)
 		return false;
 	if (ABS(dy) > g->visibility)
@@ -36,6 +36,7 @@ void draw_game(struct game *g)
 	// Reset cursor to top left corner
 	printf(CUP("1","1"));
 	for (int y = 0; y < g->maze->height; y++) {
+		printf(SGR(FG_COLR(WHITE)));
 		for (int x = 0; x < g->maze->width; x++) {
 			int pos = x + y * g->maze->width;
 			// If it's the player, draw them
@@ -45,31 +46,23 @@ void draw_game(struct game *g)
 			}
 			// If it's not visible, draw "nothing"
 			if (!is_visible(g, x, y)) {
-				printf(SGR(BG_COLR(BLACK))"?");
+				//printf(SGR(BG_COLR(BLACK))"?");
+				/* TODO: Replace debug logic with above line */
+				if (g->maze->tile[pos] == '#')
+					printf(SGR(BG_COLR(BLUE))" ");
+				else
+					printf(SGR(BG_COLR(BLACK))" ");
+				/****/
 				continue;
 			}
 			// Otherwise, draw the corresponding glyph
 			if (g->maze->tile[pos] == '#')
-				printf(SGR(BG_COLR(WHITE))" ");
+				printf(SGR(BG_COLR(WHITE))"#");
 			else
 				printf(SGR(BG_COLR(BLACK))" ");
 		}
 		printf(SGR(RESET)"\n\r"); // Carriage return necessary in raw mode
 	}
-}
-
-void game_exit(int sig)
-{
-	// Fix the terminal
-	system("stty sane"); // TODO: Use termios
-	printf(CUS); // Show cursor
-
-	if (sig == SIGTERM)
-		exit(0);
-	else
-		exit(sig);
-	// SIGTERM is not an error, so return 0
-	exit(sig == SIGTERM ? 0 : sig);
 }
 
 void try_move(struct game *g, char key)
@@ -78,7 +71,7 @@ void try_move(struct game *g, char key)
 	int new_pos;
 	int n = key - '0';
 	if (key < 0 || key == 4 || key == 'q') // Quit action: q or ^D
-		game_exit(SIGTERM);
+		raise(SIGTERM);
 	if ('1' <= key && key <= '9') { // Movement: 1-9 (TODO: vi keys)
 		dx =   (n-1) % 3 - 1;
 		dy = -((n-1) / 3 - 1);
@@ -99,6 +92,33 @@ void try_move(struct game *g, char key)
 	g->player_y += dy;
 }
 
+void clear_unseen(struct game *g)
+{
+	// For each tile
+	for (int y = 1; y < g->maze->height-1; y++) {
+		for (int x = 1; x < g->maze->width-1; x++) {
+			int pos = x + y * g->maze->width;
+			// If it's not visible, reset it
+			if (!is_visible(g, x, y))
+				g->maze->tile[pos] = '#';
+		}
+	}
+}
+
+void game_exit(int sig)
+{
+	// Fix the terminal
+	system("stty sane"); // TODO: Use termios
+	printf(CUS); // Show cursor
+
+	if (sig == SIGTERM)
+		exit(0);
+	else
+		exit(sig);
+	// SIGTERM is not an error, so return 0
+	exit(sig == SIGTERM ? 0 : sig);
+}
+
 int main(int argc, char **argv)
 {
 	int w = 80, h = 24;
@@ -112,7 +132,7 @@ int main(int argc, char **argv)
 	// Generate the maze
 	g.maze = new_maze(w, h); // TODO: Is having a struct for this really necessary?
 	maze_generate(g.maze);
-	g.visibility = 5;
+	g.visibility = 5; // TODO: Parameterize
 	// Place the player
 	g.player_x = 1;
 	g.player_y = 0;
@@ -124,9 +144,11 @@ int main(int argc, char **argv)
 	signal(SIGSEGV, game_exit);
 	system("stty raw -echo"); // TODO: Use termios
 	// Game loop
-	for (;;) {
+	for (int turn = 0; ; turn++) {
 		draw_game(&g);
 		try_move(&g, getchar());
+		clear_unseen(&g);
+		maze_generate(g.maze);
 	}
 	// Unreachable
 	return 0;

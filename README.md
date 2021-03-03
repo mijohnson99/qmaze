@@ -1,4 +1,4 @@
-# The Quantum Labyrith
+# The Quantum Labyrinth
 
 You're stuck in the Quantum Labyrinth, a maze governed by the laws of quantum superposition.
 
