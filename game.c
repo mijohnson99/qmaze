@@ -22,6 +22,7 @@ bool is_visible(struct game *g, int x, int y)
 	if (x == g->maze->width-1 || y == g->maze->height-1)
 		return true;
 	// Things near player should be visible
+	// TODO: Make this not a square
 	if (ABS(dx) > g->visibility)
 		return false;
 	if (ABS(dy) > g->visibility)
@@ -60,7 +61,8 @@ void draw_game(struct game *g)
 void game_exit(int sig)
 {
 	// Fix the terminal
-	system("stty cooked"); // TODO: Use termios
+	system("stty sane"); // TODO: Use termios
+	printf(CUS); // Show cursor
 
 	if (sig == SIGTERM)
 		exit(0);
@@ -101,7 +103,7 @@ int main(int argc, char **argv)
 {
 	int w = 80, h = 24;
 	struct game g;
-	printf(SGR(RESET) CLS); // Clear screen
+	printf(CUH SGR(RESET) CLS); // Hide cursor and clear screen
 	// Accept size parameters
 	if (argc > 2) {
 		w = atoi(argv[1]);
@@ -120,7 +122,7 @@ int main(int argc, char **argv)
 	signal(SIGINT, game_exit);
 	signal(SIGHUP, game_exit);
 	signal(SIGSEGV, game_exit);
-	system("stty raw"); // TODO: Use termios
+	system("stty raw -echo"); // TODO: Use termios
 	// Game loop
 	for (;;) {
 		draw_game(&g);
