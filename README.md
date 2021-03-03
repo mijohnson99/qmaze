@@ -1,7 +1,9 @@
 # The Quantum Labyrinth
 
-You're stuck in the Quantum Labyrinth, a maze governed by the laws of quantum superposition.
+You must traverse the Quantum Labyrinth built by Erwin Schrödinger, a maze governed by the laws of quantum superposition.
 
-Everything you can't see reverts to a superposition of wall and floor states, and collapses only as it comes into view.
+Every tile you can't see may revert to a superposition and collapse differently the next time you observe it.
 
-The maze changes underfoot!
+You might be able to peek around a corner or backtrack slightly, but be wary.
+
+#### The maze changes underfoot!
