@@ -120,12 +120,12 @@ void maze_generate(struct maze *m)
 	// Open up one of the nodes to start from it
 	int pos = random_point(m);
 	m->tile[pos] = ' ';
-	// While there are places to continue
-	while (snake_continue(m, &pos)) { // Jump to it
+	do {
 		// Walk from the space as long as possible
 		while (snake_step(m, &pos))
 			continue;
-	}
+		// Jump to a new spot when finished
+	} while (snake_continue(m, &pos));
 }
 
 #ifdef UNIT_TEST
