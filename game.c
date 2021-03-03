@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <time.h>
 #include "src/aterm.h"
 #include "src/maze.h"
 
@@ -93,7 +94,7 @@ void try_move(struct game *g, char key)
 	g->player_y += dy;
 }
 
-void clear_unseen(struct game *g)
+void cull_unseen(struct game *g)
 {
 	// For each tile
 	for (int y = 1; y < g->maze->height-1; y++) {
@@ -112,12 +113,7 @@ void game_exit(int sig)
 	system("stty sane"); // TODO: Use termios
 	printf(CUS); // Show cursor
 
-	if (sig == SIGTERM)
-		exit(0);
-	else
-		exit(sig);
-	// SIGTERM is not an error, so return 0
-	exit(sig == SIGTERM ? 0 : sig);
+	exit(sig == SIGTERM ? 0 : sig); // SIGTERM is not an error
 }
 
 int main(int argc, char **argv)
@@ -125,6 +121,7 @@ int main(int argc, char **argv)
 	int w = 80, h = 24;
 	int turn = 0;
 	struct game g;
+	srand(time(NULL));
 	printf(CUH SGR(RESET) CLS); // Hide cursor and clear screen
 	// Accept size parameters
 	if (argc > 2) {
@@ -133,6 +130,7 @@ int main(int argc, char **argv)
 	}
 	// Generate the maze
 	g.maze = new_maze(w, h); // TODO: Is having a struct for this really necessary?
+	maze_initialize(g.maze);
 	maze_generate(g.maze);
 	g.visibility = 5; // TODO: Parameterize
 	g.volatility = 1; // TODO: Parameterize
@@ -152,7 +150,7 @@ int main(int argc, char **argv)
 		draw_game(&g);
 		try_move(&g, getchar());
 		if (turn % g.volatility == 0) {
-			clear_unseen(&g);
+			cull_unseen(&g);
 			maze_generate(g.maze);
 		}
 	}

@@ -1,16 +1,5 @@
 #include "maze.h"
 
-void maze_initialize(struct maze *m)
-{	// Fill maze with walls, i.e. '#'
-	int area = m->width * m->height;
-	for (int i = 0; i < area; i++)
-		m->tile[i] = '#';
-	// Add entrance and exit
-	// TODO? Add random entrance and exit locations
-	m->tile[1] = ' ';
-	m->tile[m->width * m->height - 2] = ' ';
-}
-
 struct maze *new_maze(int w, int h)
 {
 	struct maze *m;
@@ -19,14 +8,23 @@ struct maze *new_maze(int w, int h)
 		w--;
 	if (h % 2 == 0)
 		h--;
-	// Allocate memory and instantiate
+	// Allocate memory and populate fields
 	m = malloc(sizeof(*m) + w*h*sizeof(m->tile[0]));
 	m->width = w;
 	m->height = h;
-	maze_initialize(m);
 	return m;
 }
-#define free_maze(m) free(m)
+
+void maze_initialize(struct maze *m)
+{	// Fill maze with walls, i.e. '#'
+	int area = m->width * m->height;
+	for (int i = 0; i < area; i++)
+		m->tile[i] = '#';
+	// Add entrance and exit
+	m->tile[1] = ' ';
+	m->tile[m->width * m->height - 2] = ' ';
+}
+
 
 #define NORTH(m,p) ((p) - 2*(m)->width)
 #define SOUTH(m,p) ((p) + 2*(m)->width)
@@ -87,11 +85,6 @@ bool snake_continue(struct maze *m, int *pos)
 	return true;
 }
 
-static inline int wall(int p1, int p2)
-{
-	return p1 + (p2 - p1)/2;
-}
-
 bool snake_step(struct maze *m, int *pos)
 {
 	// Pick a neighbor who hasn't been visited yet
@@ -124,17 +117,15 @@ void maze_generate(struct maze *m)
 	// 1. Pick any visited square adjacent to an unvisited square.
 	// 2. Continue the algorithm from there.
 
-	// Create the first blank space
-	//int pos = m->width + 1;
+	// Open up one of the nodes to start from it
 	int pos = random_point(m);
 	m->tile[pos] = ' ';
-	// Until there are no free spaces
-	do {
+	// While there are places to continue
+	while (snake_continue(m, &pos)) { // Jump to it
 		// Walk from the space as long as possible
 		while (snake_step(m, &pos))
 			continue;
-		// Jump to another valid point when necessary
-	} while (snake_continue(m, &pos));
+	}
 }
 
 #ifdef UNIT_TEST
