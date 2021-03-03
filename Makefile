@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -Os -g
+CFLAGS = -Wall -Wextra -pedantic -Os -g
 
 all: game
 

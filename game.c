@@ -7,8 +7,8 @@
 
 struct game {
 	struct maze *maze;
-	int visibility;
-	int volatility;
+	struct maze *superposition;
+	double volatility;
 	int player_x;
 	int player_y;
 };
@@ -17,20 +17,37 @@ struct game {
 bool is_visible(struct game *g, int x, int y)
 {
 	int dx = x - g->player_x;
+	int dx_dir = dx < 0 ? -1 : 1;
 	int dy = y - g->player_y;
-	// Perimeter should be visible
+	int dy_dir = dy < 0 ? -1 : 1;
+	// Player can see themself
+	if (dx == 0 && dy == 0)
+		return true;
+	// Something cannot be seen past a wall
+	if (dy == 0 && g->maze->tile[x-dx_dir + y * g->maze->width] == '#')
+		return false;
+	if (dx == 0 && g->maze->tile[x + (y-dy_dir) * g->maze->width] == '#')
+		return false;
+	// Player can see down corridors
+	if (dy == 0)
+		return is_visible(g, x-dx_dir, y);
+	if (dx == 0)
+		return is_visible(g, x, y-dy_dir);
+	// Player can see walls of corridors
+	if (dy == -1 || dy == 1)
+		return is_visible(g, x, y-dy_dir);
+	if (dx == -1 || dx == 1)
+		return is_visible(g, x-dx_dir, y);
+	return false;
+}
+
+bool is_perimeter(struct game *g, int x, int y)
+{
 	if (x == 0 || y == 0)
 		return true;
 	if (x == g->maze->width-1 || y == g->maze->height-1)
 		return true;
-	// Things near player should be visible
-	// TODO: if (ABS(dx) + ABS(dy) > g->visibility) return false;
-	if (ABS(dx) > g->visibility)
-		return false;
-	if (ABS(dy) > g->visibility)
-		return false;
-	// TODO: Make long corridors visible
-	return true;
+	return false;
 }
 
 void draw_game(struct game *g)
@@ -47,14 +64,8 @@ void draw_game(struct game *g)
 				continue;
 			}
 			// If it's not visible, draw "nothing"
-			if (!is_visible(g, x, y)) {
-				//printf(SGR(BG_COLR(BLACK))"?");
-				/* TODO: Replace debug logic with above line */
-				if (g->maze->tile[pos] == '#')
-					printf(SGR(BG_COLR(BLUE))" ");
-				else
-					printf(SGR(BG_COLR(BLACK))" ");
-				/****/
+			if (!is_visible(g, x, y) && !is_perimeter(g, x, y)) {
+				printf(SGR(BG_COLR(BLACK))"?");
 				continue;
 			}
 			// Otherwise, draw the corresponding glyph
@@ -63,7 +74,7 @@ void draw_game(struct game *g)
 			else
 				printf(SGR(BG_COLR(BLACK))" ");
 		}
-		printf(SGR(RESET)"\n\r"); // Carriage return necessary in raw mode
+		printf(SGR(RESET)"\r\n"); // Carriage return is necessary in raw mode
 	}
 }
 
@@ -80,10 +91,14 @@ void try_move(struct game *g, char key)
 	}
 	// The only open squares are at the corners.
 	// Therefore, only need to range check twice.
-	if (dy < 0 && g->player_y == 0)
-		return; // TODO: Exit condition
-	if (dy > 0 && g->player_y == g->maze->height-1)
-		return; // TODO: Win condition
+	if (dy < 0 && g->player_y == 0) {
+		printf("You have exited the labyrinth a coward.\r\n");
+		raise(SIGTERM);
+	}
+	if (dy > 0 && g->player_y == g->maze->height-1) {
+		puts("You have conquered the labyrinth!\r\n");
+		raise(SIGTERM);
+	}
 	// Calculate moved position
 	new_pos = (g->player_x + dx) + (g->player_y + dy) * g->maze->width;
 	// If we bump into a wall, don't move
@@ -92,19 +107,6 @@ void try_move(struct game *g, char key)
 	// Otherwise, move
 	g->player_x += dx;
 	g->player_y += dy;
-}
-
-void cull_unseen(struct game *g)
-{
-	// For each tile
-	for (int y = 1; y < g->maze->height-1; y++) {
-		for (int x = 1; x < g->maze->width-1; x++) {
-			int pos = x + y * g->maze->width;
-			// If it's not visible, reset it
-			if (!is_visible(g, x, y))
-				g->maze->tile[pos] = '#';
-		}
-	}
 }
 
 void game_exit(int sig)
@@ -116,10 +118,24 @@ void game_exit(int sig)
 	exit(sig == SIGTERM ? 0 : sig); // SIGTERM is not an error
 }
 
+void mutate(struct game *g)
+{
+	// Measure the superposition
+	maze_initialize(g->superposition);
+	maze_generate(g->superposition);
+	// Apply it to tiles that the player can't see
+	for (int y = 0; y < g->maze->height; y++) {
+		for (int x = 0; x < g->maze->width; x++) {
+			int pos = x + y * g->maze->width;
+			if (!is_visible(g, x, y))
+				g->maze->tile[pos] = g->superposition->tile[pos];
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	int w = 80, h = 24;
-	int turn = 0;
 	struct game g;
 	srand(time(NULL));
 	printf(CUH SGR(RESET) CLS); // Hide cursor and clear screen
@@ -129,11 +145,11 @@ int main(int argc, char **argv)
 		h = atoi(argv[2]);
 	}
 	// Generate the maze
-	g.maze = new_maze(w, h); // TODO: Is having a struct for this really necessary?
+	g.maze = new_maze(w, h); // TODO: Is having struct game really necessary?
 	maze_initialize(g.maze);
 	maze_generate(g.maze);
-	g.visibility = 5; // TODO: Parameterize
-	g.volatility = 1; // TODO: Parameterize
+	g.superposition = new_maze(w, h); // Allocate for the superposition layer
+	g.volatility = 0.1; // Percent chance to mutate the labyrinth
 	// Place the player
 	g.player_x = 1;
 	g.player_y = 0;
@@ -146,13 +162,10 @@ int main(int argc, char **argv)
 	system("stty raw -echo"); // TODO: Use termios
 	// Game loop
 	for (;;) {
-		turn++;
 		draw_game(&g);
 		try_move(&g, getchar());
-		if (turn % g.volatility == 0) {
-			cull_unseen(&g);
-			maze_generate(g.maze);
-		}
+		if ((double)rand() / RAND_MAX < g.volatility)
+			mutate(&g);
 	}
 	// Unreachable
 	return 0;
